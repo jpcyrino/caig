@@ -12,17 +12,17 @@ typedef enum minseg_error
     MINSEG_LEXICON_ERROR,
 } minseg_error;
 
-typedef struct minseg_result
+typedef struct minseg
 {
     char32_t** segments;
     size_t size;
-} minseg_result;
+} minseg;
 
-minseg_result* 
+minseg* 
 minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error);
 
 void 
-minseg_free (minseg_result* result);
+minseg_free (minseg* result);
 
 #endif
 

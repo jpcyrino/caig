@@ -28,7 +28,7 @@ int main()
     u8to32(sentence,sentence32);
 
     minseg_error merr = 0;
-    minseg_result* res = minseg_create(lex,sentence32,&merr);
+    minseg* res = minseg_create(lex,sentence32,&merr);
     if(res == NULL) return -1;
 
     diff = start - clock();
@@ -42,7 +42,7 @@ int main()
     }
 
     free(sentence32); sentence32 = NULL;
-    free(res);
+    minseg_free(res);
     return 0;
 
 }

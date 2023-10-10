@@ -114,10 +114,10 @@ exit:
 }
 
 
-minseg_result* 
+minseg* 
 minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error)
 {
-    minseg_result* result = NULL;
+    minseg* result = NULL;
    
     size_t chosen_words_sz = u32strlen(sentence);
     char32_t** chosen_words = calloc(chosen_words_sz, sizeof(char32_t*));
@@ -130,7 +130,7 @@ minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error)
     *error = backtrack(chosen_words, chosen_words_sz, NULL, &segments_sz);
     if(*error) goto error_exit;
 
-    result = malloc(sizeof(minseg_result));
+    result = malloc(sizeof(minseg));
     if(result == NULL) goto malloc_error;
     result->segments = malloc(segments_sz * sizeof(char32_t*));
     if(result->segments == NULL) goto malloc_error;
@@ -152,7 +152,7 @@ error_exit:
 
 
 void 
-minseg_free(minseg_result* result)
+minseg_free(minseg* result)
 {
     for(size_t i=0;i<result->size;i++) free(result->segments[i]);
     free(result->segments);
