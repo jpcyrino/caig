@@ -9,10 +9,10 @@
 int main(int argc, char* argv[])
 {
     lexicon* lex = lexicon_create();
-    lexicon_error error = NORMAL;
+    lexicon_error error;
     clock_t start = clock(), diff;
-    error = lexicon_populate_from_wordlist_file(lex,"./test_res/wordlist.txt");
-    if(error) goto exit;
+    lexicon_populate_from_wordlist_file(lex,"./test_res/wordlist.txt",&error);
+    if(error) {printf("error %d \n",error); goto exit;}
 
     diff = start - clock();
     int8_t msec = diff * 1000 / CLOCKS_PER_SEC;

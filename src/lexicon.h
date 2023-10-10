@@ -17,10 +17,10 @@
 
 typedef enum lexicon_error
 {
-    NORMAL,
-    MEMORY_ALLOCATION_ERROR,
-    OUT_OF_SPACE,
-    FILE_ERROR
+    LEXICON_NORMAL,
+    LEXICON_MEMORY_ALLOCATION_ERROR,
+    LEXICON_OUT_OF_SPACE_ERROR,
+    LEXICON_FILE_ERROR
 } lexicon_error;
 
 typedef struct litem
@@ -37,11 +37,19 @@ typedef struct lexicon
     uint64_t occupancy;
 } lexicon;
 
-lexicon* lexicon_create();
-void lexicon_free(lexicon* lexicon);
+lexicon* 
+lexicon_create();
 
-lexicon_error lexicon_add(lexicon* lexicon, const char32_t* word);
-lexicon_error lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename);
-uint64_t lexicon_get_count(lexicon* lexicon, const char32_t* word);
+void 
+lexicon_free(lexicon* lexicon);
+
+void 
+lexicon_add(lexicon* lexicon, const char32_t* word, lexicon_error* error);
+
+void 
+lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename, lexicon_error* error);
+
+uint64_t 
+lexicon_get_count(lexicon* lexicon, const char32_t* word);
 
 #endif

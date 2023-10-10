@@ -91,10 +91,10 @@ static lexicon_error
 create_item(const char32_t* word, litem* item)
 {
     item->key = calloc((u32strlen(word) + 1), sizeof(char32_t) );
-    if(item->key == NULL) return MEMORY_ALLOCATION_ERROR;
+    if(item->key == NULL) return LEXICON_MEMORY_ALLOCATION_ERROR;
     u32strcpy(item->key, word);
     item->count = 1;
-    return NORMAL;
+    return LEXICON_NORMAL;
 }
 
 static lexicon_error 
@@ -110,21 +110,21 @@ add_item(litem** items, size_t* occupancy, size_t capacity, const char32_t* word
         if(items[slot] == NULL) 
         {
             litem* item = malloc(sizeof(litem));
-            if(item == NULL) return MEMORY_ALLOCATION_ERROR;
+            if(item == NULL) return LEXICON_MEMORY_ALLOCATION_ERROR;
             lexicon_error error = create_item(word,item);
             if(error) return error; 
             items[slot] = item;
             *occupancy = *occupancy + 1;
-            return NORMAL;
+            return LEXICON_NORMAL;
         }
 
         if(u32strcmp(items[slot]->key, word) == 0)
         {
             items[slot]->count++;         
-            return NORMAL;
+            return LEXICON_NORMAL;
         }
         slot++;
-        if(slot == hsh) return OUT_OF_SPACE;
+        if(slot == hsh) return LEXICON_OUT_OF_SPACE_ERROR;
     }   
 }
 
@@ -133,7 +133,7 @@ rehash(lexicon* lexicon)
 {
     size_t new_capacity = 2*lexicon->capacity;
     litem** new_list = (litem**) malloc(new_capacity * sizeof(litem*));
-    if(new_list == NULL) return MEMORY_ALLOCATION_ERROR;
+    if(new_list == NULL) return LEXICON_MEMORY_ALLOCATION_ERROR;
 
     for(size_t i=0;i<new_capacity;i++) new_list[i] = NULL;
 
@@ -161,44 +161,54 @@ rehash(lexicon* lexicon)
     free(lexicon->table);
     lexicon->table = new_list;
     lexicon->capacity = new_capacity;
-    return NORMAL;
+    return LEXICON_NORMAL;
 }
 
 
 
-lexicon_error 
-lexicon_add(lexicon* lexicon, const char32_t* word)
+void 
+lexicon_add(lexicon* lexicon, const char32_t* word, lexicon_error* error)
 { 
-    lexicon_error error = add_item(lexicon->table,&lexicon->occupancy,lexicon->capacity,word);
-    if(error) return MEMORY_ALLOCATION_ERROR;
+    *error = add_item(lexicon->table,&lexicon->occupancy,lexicon->capacity,word);
+    if(*error) goto exit;
     lexicon->total_counts++;
     if((float) lexicon->occupancy/lexicon->capacity >= LEXICON_LOAD_FACTOR) 
     {
-       return rehash(lexicon);
+       *error = rehash(lexicon);
+       if(*error) goto exit;
     } 
-    return NORMAL;
+
+    *error = LEXICON_NORMAL;
+exit:
+    return;
 }
 
 
-lexicon_error
-lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename)
+void
+lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename, lexicon_error* error)
 {
     FILE *fptr = fopen(filename,"r");
-    if(fptr == NULL) return FILE_ERROR;
+    if(fptr == NULL) { *error = LEXICON_FILE_ERROR; goto exit; }
 
     char buffer[80];
     while(fgets(buffer,80,fptr))
     {
+
         buffer[strcspn(buffer,"\n")] = 0;
         char32_t* word = malloc((u8strlen(buffer) + 1) * sizeof(char32_t));
-        if(word == NULL) return MEMORY_ALLOCATION_ERROR;
+        if(word == NULL) { *error = LEXICON_MEMORY_ALLOCATION_ERROR; goto cleanup; }
 
         u8to32(buffer,word);
-        lexicon_error error = lexicon_add(lexicon,word);
+        lexicon_add(lexicon,word,error);
         free(word);
 
-        if(error) return error;
+
+        if(*error) goto cleanup;
     }
+
+    *error = LEXICON_NORMAL;
+cleanup:
     fclose(fptr);
-    return 0;  
+exit:
+    return;  
 }
