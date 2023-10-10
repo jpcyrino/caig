@@ -12,16 +12,16 @@
 
 #include <uchar.h>
 
-// Erros:
-// ERROR_LEXICON_MEMORY_ALLOCATION - Malloc retornou ponteiro nulo.
-// ERROR_LEXICON_OUT_OF_SPACE - Tabela sem espaço. Provavelmente não foi possível 
-// aumentar a capacidade com o rehash automático. 
-#define ERROR_LEXICON_MEMORY_ALLOCATION 1
-#define ERROR_LEXICON_OUT_OF_SPACE 2 
-
-
 #define LEXICON_INITIAL_CAPACITY 8000
 #define LEXICON_LOAD_FACTOR 0.70
+
+typedef enum lexicon_error
+{
+    NORMAL,
+    MEMORY_ALLOCATION_ERROR,
+    OUT_OF_SPACE,
+    FILE_ERROR
+} lexicon_error;
 
 typedef struct litem
 {
@@ -32,16 +32,16 @@ typedef struct litem
 typedef struct lexicon 
 {
     struct litem** table;   
-    size_t total_counts;
-    size_t capacity;
-    size_t occupancy;
+    uint64_t total_counts;
+    uint64_t capacity;
+    uint64_t occupancy;
 } lexicon;
 
-int lexicon_create(lexicon* lexicon);
+lexicon* lexicon_create();
 void lexicon_free(lexicon* lexicon);
 
-int lexicon_add(lexicon* lexicon, const char32_t* word);
-int lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename);
-size_t lexicon_get_count(lexicon* lexicon, const char32_t* word);
+lexicon_error lexicon_add(lexicon* lexicon, const char32_t* word);
+lexicon_error lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename);
+uint64_t lexicon_get_count(lexicon* lexicon, const char32_t* word);
 
 #endif

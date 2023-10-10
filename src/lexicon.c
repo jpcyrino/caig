@@ -7,7 +7,8 @@
 #include "lexicon.h"
 
 
-static size_t hash(const char32_t* key)
+static size_t 
+hash(const char32_t* key)
 {
     unsigned long int hsh = 5381;
     unsigned int c;
@@ -18,20 +19,31 @@ static size_t hash(const char32_t* key)
     return (size_t) hsh;
 } 
 
-int lexicon_create(lexicon* lexicon)
+lexicon* 
+lexicon_create()
 {
-   lexicon->capacity = LEXICON_INITIAL_CAPACITY; 
-   lexicon->occupancy = 0;
-   lexicon->total_counts = 0;
-   lexicon->table = malloc(sizeof(litem*) * LEXICON_INITIAL_CAPACITY);
-   if(lexicon->table == NULL) return ERROR_LEXICON_MEMORY_ALLOCATION; 
+    lexicon* lex = malloc(sizeof(lexicon));
+    if(lex == NULL) goto exit1;
 
-   for(int i=0;i<lexicon->capacity;i++) lexicon->table[i] = NULL;
+    lex->capacity = LEXICON_INITIAL_CAPACITY; 
+    lex->occupancy = 0;
+    lex->total_counts = 0;
+    lex->table = malloc(sizeof(litem*) * LEXICON_INITIAL_CAPACITY);
+    if(lex->table == NULL) goto exit2; 
 
-   return 0;
+    for(int i=0;i<lex->capacity;i++) lex->table[i] = NULL;
+    return lex;
+
+    
+exit2:
+    free(lex->table);
+exit1:
+    free(lex);
+    return NULL;
 }
 
-void lexicon_free(lexicon* lexicon)
+void 
+lexicon_free(lexicon* lexicon)
 {
     for(int i=0; i<lexicon->capacity; i++)
     {
@@ -39,9 +51,11 @@ void lexicon_free(lexicon* lexicon)
         free(lexicon->table[i]->key); lexicon->table[i]->key = NULL;
         free(lexicon->table[i]); lexicon->table[i] = NULL;
     }
+    free(lexicon);
 }
 
-static int8_t u32strcmp(const char32_t* str1, const char32_t* str2)
+static int8_t
+u32strcmp(const char32_t* str1, const char32_t* str2)
 {
 
     size_t len = u32strlen(str1);
@@ -53,7 +67,8 @@ static int8_t u32strcmp(const char32_t* str1, const char32_t* str2)
     return 0;
 }
 
-size_t lexicon_get_count(lexicon* lexicon, const char32_t* word)
+uint64_t 
+lexicon_get_count(lexicon* lexicon, const char32_t* word)
 {
     size_t hsh = hash(word) % lexicon->capacity;
     if(lexicon->table[hsh] == NULL) return 0;
@@ -72,16 +87,18 @@ size_t lexicon_get_count(lexicon* lexicon, const char32_t* word)
 }
 
 
-static int create_item(const char32_t* word, litem* item)
+static lexicon_error 
+create_item(const char32_t* word, litem* item)
 {
     item->key = calloc((u32strlen(word) + 1), sizeof(char32_t) );
-    if(item->key == NULL) return ERROR_LEXICON_MEMORY_ALLOCATION;
+    if(item->key == NULL) return MEMORY_ALLOCATION_ERROR;
     u32strcpy(item->key, word);
     item->count = 1;
-    return 0;
+    return NORMAL;
 }
 
-static int add_item(litem** items, size_t* occupancy, size_t capacity, const char32_t* word)
+static lexicon_error 
+add_item(litem** items, size_t* occupancy, size_t capacity, const char32_t* word)
 {
     size_t hsh = hash(word) % capacity;
     size_t slot = hsh;
@@ -93,29 +110,30 @@ static int add_item(litem** items, size_t* occupancy, size_t capacity, const cha
         if(items[slot] == NULL) 
         {
             litem* item = malloc(sizeof(litem));
-            if(item == NULL) return 1;
-            int error = create_item(word,item);
+            if(item == NULL) return MEMORY_ALLOCATION_ERROR;
+            lexicon_error error = create_item(word,item);
             if(error) return error; 
             items[slot] = item;
             *occupancy = *occupancy + 1;
-            return 0;
+            return NORMAL;
         }
 
         if(u32strcmp(items[slot]->key, word) == 0)
         {
             items[slot]->count++;         
-            return 0;
+            return NORMAL;
         }
         slot++;
-        if(slot == hsh) return ERROR_LEXICON_OUT_OF_SPACE;
+        if(slot == hsh) return OUT_OF_SPACE;
     }   
 }
 
-static int rehash(lexicon* lexicon)
+static lexicon_error 
+rehash(lexicon* lexicon)
 {
     size_t new_capacity = 2*lexicon->capacity;
     litem** new_list = (litem**) malloc(new_capacity * sizeof(litem*));
-    if(new_list == NULL) return ERROR_LEXICON_MEMORY_ALLOCATION;
+    if(new_list == NULL) return MEMORY_ALLOCATION_ERROR;
 
     for(size_t i=0;i<new_capacity;i++) new_list[i] = NULL;
 
@@ -143,38 +161,40 @@ static int rehash(lexicon* lexicon)
     free(lexicon->table);
     lexicon->table = new_list;
     lexicon->capacity = new_capacity;
-    return 0;
+    return NORMAL;
 }
 
 
 
-int lexicon_add(lexicon* lexicon, const char32_t* word)
+lexicon_error 
+lexicon_add(lexicon* lexicon, const char32_t* word)
 { 
-    int error = add_item(lexicon->table,&lexicon->occupancy,lexicon->capacity,word);
-    if(error) return error;
+    lexicon_error error = add_item(lexicon->table,&lexicon->occupancy,lexicon->capacity,word);
+    if(error) return MEMORY_ALLOCATION_ERROR;
     lexicon->total_counts++;
     if((float) lexicon->occupancy/lexicon->capacity >= LEXICON_LOAD_FACTOR) 
     {
        return rehash(lexicon);
     } 
-    return 0;
+    return NORMAL;
 }
 
 
-int lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename)
+lexicon_error
+lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename)
 {
     FILE *fptr = fopen(filename,"r");
-    if(fptr == NULL) return 1;
+    if(fptr == NULL) return FILE_ERROR;
 
     char buffer[80];
     while(fgets(buffer,80,fptr))
     {
         buffer[strcspn(buffer,"\n")] = 0;
         char32_t* word = malloc((u8strlen(buffer) + 1) * sizeof(char32_t));
-        if(word == NULL) return ERROR_LEXICON_MEMORY_ALLOCATION;
+        if(word == NULL) return MEMORY_ALLOCATION_ERROR;
 
         u8to32(buffer,word);
-        int error = lexicon_add(lexicon,word);
+        lexicon_error error = lexicon_add(lexicon,word);
         free(word);
 
         if(error) return error;

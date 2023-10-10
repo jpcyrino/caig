@@ -8,17 +8,17 @@
 
 int main(int argc, char* argv[])
 {
-    lexicon lex;
+    lexicon* lex = lexicon_create();
+    lexicon_error error = NORMAL;
     clock_t start = clock(), diff;
-    int error = lexicon_create(&lex);
-    error += lexicon_populate_from_wordlist_file(&lex,"./test_res/wordlist.txt");
-    if(error) return 1;
+    error = lexicon_populate_from_wordlist_file(lex,"./test_res/wordlist.txt");
+    if(error) goto exit;
 
     diff = start - clock();
     int8_t msec = diff * 1000 / CLOCKS_PER_SEC;
     printf("Palavras carregadas em: %ds e %dms\n"
            "Quantidade de palavras: %llu\n"
-           "Quantidade de tokens: %llu\n", msec/1000, msec%1000, lex.occupancy, lex.total_counts);
+           "Quantidade de tokens: %llu\n", msec/1000, msec%1000, lex->occupancy, lex->total_counts);
 
      
 
@@ -31,9 +31,11 @@ int main(int argc, char* argv[])
         if(strcmp(wd,"q") == 0) break;
         char32_t u32[50];
         u8to32(wd,u32);
-        printf("Contagem de %s é %llu\n", wd, lexicon_get_count(&lex,u32));
+        printf("Contagem de %s é %llu\n", wd, lexicon_get_count(lex,u32));
     }
-    lexicon_free(&lex);
-    
-    return 0;
+
+
+exit:
+    lexicon_free(lex); 
+    return error;
 }
