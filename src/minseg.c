@@ -61,6 +61,12 @@ forward_step(lexicon* lex, const char32_t* sentence, char32_t** words)
         }
         costs[fpos+1] = min_cost;
         words[fpos] = calloc((u32strlen(min_cost_candidate) + 1),sizeof(char32_t));
+        if(words[fpos] == NULL)
+        {
+            for(size_t i=0;i<fpos;i++) free(words[i]);
+            error = MINSEG_MEMORY_ALLOCATION_ERROR;
+            goto exit;
+        }
         u32strcpy(words[fpos],min_cost_candidate); 
     }
 
@@ -84,8 +90,14 @@ backtrack(char32_t** words, size_t words_size,char32_t** minseg_words, size_t* m
         if(minseg_words != NULL) 
         {
             minseg_words[i] = malloc((wordlen + 1) * sizeof(char32_t)); 
-            if(minseg_words[i] == NULL) return MINSEG_MEMORY_ALLOCATION_ERROR;
-
+            if(minseg_words[i] == NULL) 
+            {
+                for(size_t j=0;j<i;j++)
+                {
+                    free(minseg_words[j]);
+                }
+                return MINSEG_MEMORY_ALLOCATION_ERROR;
+            }
             u32strcpy(minseg_words[i],words[pos]);
         } 
         minseg_words_sz++;
