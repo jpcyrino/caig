@@ -6,16 +6,6 @@
 #include "lexicon.h"
 #include "minseg.h"
 
-static void 
-u32strncpy(char32_t* dest, const char32_t* src, size_t len)
-{
-    for(size_t i=0;i<len;i++)
-    {
-        dest[i] = src[i];
-    }
-    dest[len] = 0;
-}
-
 static double 
 lexicon_lookup(lexicon* lex, const char32_t* word)
 {
