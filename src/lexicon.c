@@ -6,11 +6,12 @@
 #include "cu32.h"
 #include "lexicon.h"
 
+#define HASH_MAGIC_NUMBER 5381
 
 static size_t 
 hash(const char32_t* key)
 {
-    unsigned long int hsh = 5381;
+    unsigned long int hsh = HASH_MAGIC_NUMBER;
     unsigned int c;
     while((c = *key++))
     {
