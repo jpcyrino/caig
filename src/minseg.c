@@ -17,7 +17,7 @@ lexicon_lookup(lexicon* lex, const char32_t* word)
 }
 
 static minseg_error
-forward_step(lexicon* lex, const char32_t* sentence, char32_t** words)
+forward_step(lexicon* lex, const char32_t* sentence, char32_t** words, double* parse_cost)
 {
     size_t sentence_length = u32strlen(sentence);
     minseg_error error = MINSEG_NORMAL;
@@ -50,6 +50,7 @@ forward_step(lexicon* lex, const char32_t* sentence, char32_t** words)
             memset(candidate_buffer,0,sentence_length * 4);
         }
         costs[fpos+1] = min_cost;
+        *parse_cost = min_cost;
         words[fpos] = calloc((u32strlen(min_cost_candidate) + 1),sizeof(char32_t));
         if(words[fpos] == NULL)
         {
@@ -125,7 +126,8 @@ minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error)
     char32_t** chosen_words = calloc(chosen_words_sz, sizeof(char32_t*));
     if(chosen_words == NULL) goto malloc_error;
 
-    *error = forward_step(lex,sentence,chosen_words);
+    double cost = 0;
+    *error = forward_step(lex,sentence,chosen_words, &cost);
     if(*error) goto error_exit;
 
     size_t segments_sz = 0;
@@ -140,6 +142,7 @@ minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error)
     *error = backtrack(chosen_words, chosen_words_sz, result->segments, &segments_sz);
     if(*error) goto error_exit;
     result->size = segments_sz;
+    result->cost = cost;
     
     return result;
 

@@ -16,6 +16,7 @@ typedef struct minseg
 {
     char32_t** segments;
     size_t size;
+    double cost;
 } minseg;
 
 minseg* 

@@ -7,6 +7,7 @@
 #include "lexicon.h"
 #include "lexhnd.h"
 #include "cu32.h"
+#include "minseg.h"
 
 #define ALPHABET_INIT_LENGTH 100
 #define ALPHABET_RESIZE_RATE 0.8
@@ -16,7 +17,7 @@ typedef struct lexhnd_cycle lhcycle;
 
 struct lexhnd_cycle
 {
-    lexicon lex;
+    lexicon* lex;
     char32_t** sorted_words;
     double prior_length;
     double posterior_length;   
@@ -169,5 +170,59 @@ static double alphabet_get_word_cost(lhalphabet* ab, char32_t* word, lherror* er
         word++;
     }
     return total_cost;
+}
+
+static void alphabet_setup(lhalphabet* ab, char32_t** corpus, size_t corpus_sz, lherror* err)
+{
+    *err = LEXHND_NORMAL;
+    for(size_t i=0;i<corpus_sz;i++)
+    {
+        alphabet_add_word(ab,corpus[i],err);
+        if(*err) goto exit;
+    }
+
+exit:
+    return;
+}
+
+static void create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_sz, lherror* err)
+{
+    char32_t buff[2];
+    lexicon_error lerr;
+    lexicon* lex = lexicon_create();
+    if(lex == NULL) { *err = LEXHND_ERROR_LEXICON_ERROR; return; }
+
+    double posterior = 0;
+    // Populate lexicon with alphabet characters as 32bit strings
+    for(size_t i=0;i<corpus_sz;i++)
+    {
+        char32_t* word = corpus[i];
+        while(*word)
+        {
+            buff[0] = *word;
+            buff[1] = 0;
+            lexicon_add(lex,buff,&lerr);
+            if(lerr) goto lexicon_error;
+            word++;
+        }
+        // Calculate posterior with minseg
+        minseg_error merr;
+        minseg* parse = minseg_create(lex,corpus[i],&merr);
+        if(merr) goto minseg_error;
+        posterior += parse->cost;
+        minseg_free(parse);
+    }
+
+    comps->cycles[0].lex = lex;
+    comps->cycles[0].posterior_length = posterior;
+    
+
+lexicon_error:
+    lexicon_free(lex);
+    *err = LEXHND_ERROR_LEXICON_ERROR;
+    return;
+minseg_error:
+    *err = LEXHND_ERROR_MINSEG_ERROR;
+
 }
 

@@ -40,6 +40,7 @@ int main()
         u32to8(res->segments[i],buff);
         printf("%s ", buff);
     }
+    printf("\nCusto = %lf", res->cost);
 
     free(sentence32); sentence32 = NULL;
     minseg_free(res);
