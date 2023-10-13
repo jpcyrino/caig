@@ -50,7 +50,12 @@ lexhnd_components
 
 
 lhcomponents* 
-lexhnd_run(char32_t** corpus, size_t corpus_size, uint8_t iterations, uint8_t n_new_words);
+lexhnd_run(
+        char32_t** corpus, 
+        size_t corpus_size, 
+        uint8_t iterations, 
+        uint8_t n_new_words
+        );
 
 
 #endif
