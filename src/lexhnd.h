@@ -26,7 +26,6 @@ struct
 lexhnd_cycle
 {
     lexicon* lex;
-    char32_t** sorted_words;
     double prior_length;
     double posterior_length;   
 };
@@ -54,7 +53,9 @@ lexhnd_run(
         char32_t** corpus, 
         size_t corpus_size, 
         uint8_t iterations, 
-        uint8_t n_new_words
+        uint8_t n_new_words,
+        lherror* error,
+        uint8_t* error_code
         );
 
 

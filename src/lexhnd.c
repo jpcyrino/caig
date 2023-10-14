@@ -169,16 +169,25 @@ exit:
     return;
 }
 
-// TODO: implement
 static double 
-lexhnd_get_lexicon_bitlength(lhalphabet* ab, lexicon* lex)
+lexhnd_get_lexicon_bitlength(lhalphabet* ab, lhcycle* cycle, lherror* err)
 {
-
-    return 0;
+    *err = LEXHND_NORMAL;
+    double bitlen = 0;
+    size_t lexlen = cycle->lex->occupancy;
+    litem** items = malloc(lexlen * sizeof(litem*));
+    lexicon_get_items(cycle->lex,items);
+    for(size_t i=0;i<lexlen;i++)
+    {
+        bitlen += alphabet_get_word_cost(ab,items[i]->key,err);
+        if(*err) return DBL_MAX;
+    }
+    return bitlen;
 }
 
 static void 
-lexhnd_create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_sz, lherror* err, uint8_t* error_code)
+lexhnd_create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_sz, 
+        lherror* err, uint8_t* error_code)
 {
     lexicon_error lerr = LEXICON_NORMAL;
     minseg_error merr = MINSEG_NORMAL;
@@ -206,11 +215,11 @@ lexhnd_create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_
         minseg_free(parse);
     }
 
-    // TODO: complete prior
     comps->cycles[0].lex = lex;
     comps->cycles[0].posterior_length = posterior;
-    //comps->cycles[0].prior_length = ...  
+    comps->cycles[0].prior_length = lexhnd_get_lexicon_bitlength(comps->alphabet, &comps->cycles[0],err);
 
+    return;
 lexicon_error:
     lexicon_free(lex);
     *err = LEXHND_ERROR_LEXICON_ERROR;
@@ -222,3 +231,30 @@ minseg_error:
 
 }
 
+lhcomponents* lexhnd_run(char32_t** corpus, size_t corpus_size, uint8_t iterations, 
+        uint8_t n_new_words, lherror* error, uint8_t* error_code)
+{
+    *error = LEXHND_NORMAL;
+    lhcomponents* comps = malloc(sizeof(lhcomponents));
+    if(comps == NULL) goto error_exit;
+
+    comps->cycles = calloc(iterations, sizeof(lhcycle));
+    if(comps->cycles == NULL) goto error_exit;
+
+    comps->alphabet = alphabet_create(error);
+    if(*error) goto error_exit;
+
+    alphabet_setup(comps->alphabet,corpus,corpus_size,error);
+    if(*error) goto error_exit;
+
+    lexhnd_create_first_cycle(comps, corpus,corpus_size, error, error_code);
+    if(*error) goto error_exit;
+
+
+
+    
+
+    return comps;
+error_exit: 
+    return NULL;
+}
