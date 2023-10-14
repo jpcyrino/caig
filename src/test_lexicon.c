@@ -34,6 +34,19 @@ int main(int argc, char* argv[])
         printf("Contagem de %s é %llu\n", wd, lexicon_get_count(lex,u32));
     }
 
+    size_t lex_sz = lex->occupancy;
+    litem** li = malloc(lex_sz * sizeof(litem*));
+    lexicon_get_items(lex, li);
+
+    char buff[80];
+    for(size_t i=0;i<lex_sz;i++)
+    {
+        u32to8(li[i]->key,buff);
+        printf("%s - %llu\n", buff, li[i]->count);
+    }
+
+    free(li);
+
 
 exit:
     lexicon_free(lex); 

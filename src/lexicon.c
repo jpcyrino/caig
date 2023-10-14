@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <uchar.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -212,4 +213,31 @@ cleanup:
     fclose(fptr);
 exit:
     return;  
+}
+
+static
+int compare_item_freqs(const void* item_a, const void* item_b)
+{
+    uint64_t a = (*((litem**) item_a))->count;
+    uint64_t b = (*((litem**) item_b))->count;
+
+    return (a < b) - (a > b);
+}
+
+void 
+lexicon_get_items(lexicon* lexicon, litem** lex_items)
+{
+    // populate items array
+    size_t li = 0;
+    for(size_t i=0;i<lexicon->capacity;i++)
+    {
+        if(lexicon->table[i] != NULL)
+        {   
+            lex_items[li] = lexicon->table[i];
+            li++;
+        }
+    }
+
+    // sort
+    qsort(lex_items,lexicon->occupancy,sizeof(litem*),compare_item_freqs);
 }

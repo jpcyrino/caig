@@ -171,14 +171,14 @@ exit:
 
 // TODO: implement
 static double 
-alphabet_get_lexicon_bitlength(lhalphabet* ab, lexicon* lex)
+lexhnd_get_lexicon_bitlength(lhalphabet* ab, lexicon* lex)
 {
 
     return 0;
 }
 
 static void 
-create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_sz, lherror* err, uint8_t* error_code)
+lexhnd_create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_sz, lherror* err, uint8_t* error_code)
 {
     lexicon_error lerr = LEXICON_NORMAL;
     minseg_error merr = MINSEG_NORMAL;

@@ -49,6 +49,9 @@ lexicon_add(lexicon* lexicon, const char32_t* word, lexicon_error* error);
 void 
 lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename, lexicon_error* error);
 
+void 
+lexicon_get_items(lexicon* lexicon, litem** lex_items);
+
 uint64_t 
 lexicon_get_count(lexicon* lexicon, const char32_t* word);
 
