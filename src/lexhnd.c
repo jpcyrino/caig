@@ -238,6 +238,8 @@ lhcomponents* lexhnd_run(char32_t** corpus, size_t corpus_size, uint8_t iteratio
     lhcomponents* comps = malloc(sizeof(lhcomponents));
     if(comps == NULL) goto error_exit;
 
+    comps->n_cycles = iterations;
+
     comps->cycles = calloc(iterations, sizeof(lhcycle));
     if(comps->cycles == NULL) goto error_exit;
 
@@ -257,4 +259,12 @@ lhcomponents* lexhnd_run(char32_t** corpus, size_t corpus_size, uint8_t iteratio
     return comps;
 error_exit: 
     return NULL;
+}
+
+void lexhnd_free(lhcomponents* lh)
+{
+    //TODO free inner components
+    
+    free(lh);
+    lh = NULL;
 }

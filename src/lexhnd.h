@@ -44,6 +44,7 @@ lexhnd_components
     char32_t** corpus;
     size_t corpus_sz;
     lhcycle* cycles;
+    uint8_t n_cycles;
     lhalphabet* alphabet;    
 };
 
@@ -58,5 +59,7 @@ lexhnd_run(
         uint8_t* error_code
         );
 
+void 
+lexhnd_free(lhcomponents* lh);
 
 #endif
