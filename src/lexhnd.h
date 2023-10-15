@@ -27,7 +27,7 @@ struct
 lexhnd_cycle
 {
     lexicon* lex;
-    minseg* parses;
+    minseg** parses;
     double prior_length;
     double posterior_length;   
 };

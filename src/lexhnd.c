@@ -202,7 +202,7 @@ lexhnd_create_first_cycle(
     lexicon* lex = lexicon_create();
     if(lex == NULL) goto malloc_error;
 
-    minseg* parses = malloc(corpus_sz * sizeof(minseg));
+    minseg** parses = malloc(corpus_sz * sizeof(minseg*));
     if(parses == NULL) goto malloc_error;
 
     // Populate lexicon with alphabet characters as 32bit strings
@@ -221,8 +221,9 @@ lexhnd_create_first_cycle(
         minseg* parse = minseg_create(lex,corpus[i],&merr);
         if(merr) goto minseg_error;
         posterior += parse->cost;
-        parses[i] = *parse;
-        free(parse);
+        
+        // Add each parse to cycle object
+        parses[i] = parse;
     }
 
     comps->cycles[0].parses = parses;
@@ -303,7 +304,8 @@ void lexhnd_free(lhcomponents* lh)
     for(size_t i=0;i<lh->n_cycles;i++)
     {
         if(lh->cycles[i].lex != NULL) lexicon_free(lh->cycles[i].lex);
-        if(lh->cycles[i].parses != NULL) minseg_free(lh->cycles[i].parses);
+        if(lh->cycles[i].parses != NULL) 
+            for(size_t j=0;j<lh->corpus_sz;j++) minseg_free(lh->cycles[i].parses[j]);
     }
     free(lh->cycles);
     free(lh);
