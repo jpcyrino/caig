@@ -186,15 +186,24 @@ lexhnd_get_lexicon_bitlength(lhalphabet* ab, lhcycle* cycle, lherror* err)
 }
 
 static void 
-lexhnd_create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_sz, 
-        lherror* err, uint8_t* error_code)
+lexhnd_create_first_cycle(
+        lhcomponents* comps, 
+        char32_t** corpus, 
+        size_t corpus_sz, 
+        lherror* err, 
+        uint8_t* error_code
+        )
 {
     lexicon_error lerr = LEXICON_NORMAL;
     minseg_error merr = MINSEG_NORMAL;
     char32_t buff[2];
     double posterior = 0; 
+
     lexicon* lex = lexicon_create();
-    if(lex == NULL) { *err = LEXHND_ERROR_LEXICON_ERROR; return; }
+    if(lex == NULL) goto malloc_error;
+
+    minseg* parses = malloc(corpus_sz * sizeof(minseg));
+    if(parses == NULL) goto malloc_error;
 
     // Populate lexicon with alphabet characters as 32bit strings
     for(size_t i=0;i<corpus_sz;i++)
@@ -212,9 +221,11 @@ lexhnd_create_first_cycle(lhcomponents* comps, char32_t** corpus, size_t corpus_
         minseg* parse = minseg_create(lex,corpus[i],&merr);
         if(merr) goto minseg_error;
         posterior += parse->cost;
-        minseg_free(parse);
+        parses[i] = *parse;
+        free(parse);
     }
 
+    comps->cycles[0].parses = parses;
     comps->cycles[0].lex = lex;
     comps->cycles[0].posterior_length = posterior;
     comps->cycles[0].prior_length = lexhnd_get_lexicon_bitlength(comps->alphabet, &comps->cycles[0],err);
@@ -228,11 +239,32 @@ lexicon_error:
 minseg_error:
     *err = LEXHND_ERROR_MINSEG_ERROR;
     *error_code = merr;
+    return;
+malloc_error:
+    *err = LEXHND_ERROR_MEMORY_ALLOCATION;
+    return;
+}
+
+static void 
+lexhnd_next_cycle(lhcomponents* comps)
+{
+    // join neighboring segments
+    // get frequency of joined items
+    // add n most common to lexicon
+    // minseg of new lexicon (cycle->parses)
+    // produce new lexicon with segments from minseg (cycle->lex), prior
+    // minseg -> posterior
 
 }
 
-lhcomponents* lexhnd_run(char32_t** corpus, size_t corpus_size, uint8_t iterations, 
-        uint8_t n_new_words, lherror* error, uint8_t* error_code)
+lhcomponents* lexhnd_run(
+        char32_t** corpus, 
+        size_t corpus_size, 
+        uint8_t iterations, 
+        uint8_t n_new_words, 
+        lherror* error, 
+        uint8_t* error_code
+        )
 {
     *error = LEXHND_NORMAL;
     lhcomponents* comps = malloc(sizeof(lhcomponents));
@@ -242,6 +274,11 @@ lhcomponents* lexhnd_run(char32_t** corpus, size_t corpus_size, uint8_t iteratio
 
     comps->cycles = calloc(iterations, sizeof(lhcycle));
     if(comps->cycles == NULL) goto error_exit;
+    for(size_t i=0;i<iterations;i++)
+    {
+        comps->cycles[i].lex = NULL;
+        comps->cycles[i].parses = NULL;
+    }
 
     comps->alphabet = alphabet_create(error);
     if(*error) goto error_exit;
@@ -263,8 +300,12 @@ error_exit:
 
 void lexhnd_free(lhcomponents* lh)
 {
-    //TODO free inner components
-    
+    for(size_t i=0;i<lh->n_cycles;i++)
+    {
+        if(lh->cycles[i].lex != NULL) lexicon_free(lh->cycles[i].lex);
+        if(lh->cycles[i].parses != NULL) minseg_free(lh->cycles[i].parses);
+    }
+    free(lh->cycles);
     free(lh);
     lh = NULL;
 }

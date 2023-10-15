@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include "lexicon.h"
+#include "minseg.h"
 
 typedef enum 
 lexhnd_error
@@ -26,6 +27,7 @@ struct
 lexhnd_cycle
 {
     lexicon* lex;
+    minseg* parses;
     double prior_length;
     double posterior_length;   
 };
