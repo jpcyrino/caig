@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     lexicon_get_items(lex, li);
 
     char buff[80];
-    for(size_t i=0;i<lex_sz;i++)
+    for(size_t i=0;i<20;i++)
     {
         u32to8(li[i]->key,buff);
         printf("%s - %llu\n", buff, li[i]->count);

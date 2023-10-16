@@ -42,27 +42,11 @@ int main()
     printf("Carregou o corpus em %lf s\n", sec); 
 
     clock_t proc_s = clock();
-    lherror err;
-    uint8_t errc;
-    lhcomponents* lc = lexhnd_run(corpus,CORPUS_SIZE,5,40,&err,&errc);
-    if(err) 
-    {
-        printf("Error code %u", err);
-        return -1;
-    }
-
+    // run lexhnd_run
     clock_t proc_e = clock();
-    sec = ((double) proc_e - proc_s) / CLOCKS_PER_SEC;
-    printf("Processou o primeiro ciclo em %lf s\n",sec);
-
-
-    printf("tamanho do lexico %llu\npriori %lf \nposteriori %lf\n", lc->cycles[0].lex->occupancy ,lc->cycles[0].prior_length, lc->cycles[0].posterior_length);
     
-    clock_t tot_e = clock();
-    sec = ((double) tot_e - tot_s) / CLOCKS_PER_SEC;
-    printf("Tempo total decorrido %lf s\n",sec);
 
-    lexhnd_free(lc);
+    
     for(size_t j=0;j<CORPUS_SIZE;j++)
     {
         free(corpus[j]);
@@ -70,5 +54,5 @@ int main()
     
     free(corpus);
 
-    printf("all free\n");
+    
 }
