@@ -44,7 +44,7 @@ int main()
     clock_t proc_s = clock();
     lherror err;
     uint8_t errc;
-    lhcomponents* lc = lexhnd_run(corpus,CORPUS_SIZE,5,10,&err,&errc);
+    lhcomponents* lc = lexhnd_run(corpus,CORPUS_SIZE,5,40,&err,&errc);
     if(err) 
     {
         printf("Error code %u", err);

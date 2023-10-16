@@ -5,13 +5,6 @@
 #include <stdint.h>
 #include "lexicon.h"
 
-typedef enum minseg_error
-{
-    MINSEG_NORMAL,
-    MINSEG_MEMORY_ALLOCATION_ERROR,
-    MINSEG_LEXICON_ERROR,
-} minseg_error;
-
 typedef struct minseg
 {
     char32_t** segments;
@@ -20,7 +13,7 @@ typedef struct minseg
 } minseg;
 
 minseg* 
-minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error);
+minseg_create(lexicon* lex, const char32_t* sentence);
 
 void 
 minseg_free (minseg* result);

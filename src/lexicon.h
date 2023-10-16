@@ -15,14 +15,6 @@
 #define LEXICON_INITIAL_CAPACITY 8000
 #define LEXICON_LOAD_FACTOR 0.70
 
-typedef enum lexicon_error
-{
-    LEXICON_NORMAL,
-    LEXICON_MEMORY_ALLOCATION_ERROR,
-    LEXICON_OUT_OF_SPACE_ERROR,
-    LEXICON_FILE_ERROR
-} lexicon_error;
-
 typedef struct litem
 {
     char32_t* key;
@@ -44,10 +36,10 @@ void
 lexicon_free(lexicon* lexicon);
 
 void 
-lexicon_add(lexicon* lexicon, const char32_t* word, lexicon_error* error);
+lexicon_add(lexicon* lexicon, const char32_t* word, size_t count);
 
 void 
-lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename, lexicon_error* error);
+lexicon_populate_from_wordlist_file(lexicon* lexicon, const char* filename);
 
 void 
 lexicon_get_items(lexicon* lexicon, litem** lex_items);

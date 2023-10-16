@@ -9,16 +9,16 @@
 int main(int argc, char* argv[])
 {
     lexicon* lex = lexicon_create();
-    lexicon_error error;
-    clock_t start = clock(), diff;
-    lexicon_populate_from_wordlist_file(lex,"./test_res/wordlist.txt",&error);
-    if(error) {printf("error %d \n",error); goto exit;}
 
-    diff = start - clock();
-    int8_t msec = diff * 1000 / CLOCKS_PER_SEC;
-    printf("Palavras carregadas em: %ds e %dms\n"
+    clock_t start = clock();
+    lexicon_populate_from_wordlist_file(lex,"./test_res/wordlist.txt");
+
+
+    clock_t end = clock();
+    float sec = (float) (end-start) / CLOCKS_PER_SEC;
+    printf("Palavras carregadas em: %fs\n"
            "Quantidade de palavras: %llu\n"
-           "Quantidade de tokens: %llu\n", msec/1000, msec%1000, lex->occupancy, lex->total_counts);
+           "Quantidade de tokens: %llu\n", sec, lex->occupancy, lex->total_counts);
 
      
 
@@ -46,9 +46,6 @@ int main(int argc, char* argv[])
     }
 
     free(li);
-
-
-exit:
     lexicon_free(lex); 
-    return error;
+    return 0;
 }

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "lexicon.h"
 #include "lexhnd.h"
 #include "cu32.h"
@@ -11,7 +12,6 @@
 
 #define ALPHABET_INIT_LENGTH 100
 #define ALPHABET_RESIZE_RATE 0.8
-
 
 static void 
 alphabet_resize(lhalphabet* ab, lherror* err)
@@ -213,7 +213,7 @@ lexhnd_create_first_cycle(
         {
             buff[0] = *word;
             buff[1] = 0;
-            lexicon_add(lex,buff,&lerr);
+            lexicon_add(lex,buff,1,&lerr);
             if(lerr) goto lexicon_error;
             word++;
         }
@@ -247,15 +247,107 @@ malloc_error:
 }
 
 static void 
-lexhnd_next_cycle(lhcomponents* comps)
+u32strjoin(char32_t* dest, char32_t* str1, char32_t* str2)
 {
-    // join neighboring segments
-    // get frequency of joined items
-    // add n most common to lexicon
-    // minseg of new lexicon (cycle->parses)
-    // produce new lexicon with segments from minseg (cycle->lex), prior
-    // minseg -> posterior
+    size_t len1 = u32strlen(str1);
+    size_t len2 = u32strlen(str2);
+    for(size_t i=0;i<len1;i++) dest[i] = str1[i];
+    for(size_t i=0;i<len2;i++) dest[len1+i] = str2[i];
+    dest[len1+len2] = 0;
+}
 
+static lexicon_error
+copy_lexical_items(lexicon* dest, lexicon* src)
+{
+    lexicon_error err = LEXICON_NORMAL;
+    for(size_t i=0;i<src->capacity;i++)
+    {
+        if(src->table[i] == NULL) continue;
+        lexicon_add(dest, src->table[i]->key, src->table[i]->count, &err);
+    }
+    return err;
+}
+
+#define BUFFER_SZ_TEMP_LEXICON_SEGMENT 100
+
+static void 
+lexhnd_cycle(lhcomponents* comps,uint64_t cycle,uint64_t n_new_words)
+{
+    // join neighboring segments add them to temporary lexicon
+    minseg** parses = comps->cycles[cycle-1].parses;
+    lexicon_error lex_err;
+    lexicon* temp_lex = lexicon_create();
+    if(temp_lex == NULL) {} // handle malloc error
+
+    for(size_t i=0;i<comps->corpus_sz;i++)
+    {
+        for(size_t j=0;j<parses[i]->size;j+=2)
+        {
+            char32_t buff[BUFFER_SZ_TEMP_LEXICON_SEGMENT]; // Buffer to avoid malloc, test perf
+            if(j==parses[i]->size-1) 
+            {
+                lexicon_add(temp_lex, parses[i]->segments[j], 1,&lex_err);
+                continue;
+            } 
+            u32strjoin(buff, parses[i]->segments[j], parses[i]->segments[j+1]);
+            lexicon_add(temp_lex, buff,1, &lex_err); 
+        }
+    }
+
+    // add n most common of temp_lexicon to new_lexicon
+    litem** new_items = malloc(temp_lex->occupancy * sizeof(litem*));
+    if(new_items == NULL) {} // handle malloc error
+
+    lexicon* new_lexicon = lexicon_create();
+    if(new_lexicon == NULL) {} // handle malloc error
+
+    lexicon_get_items(temp_lex,new_items);
+    uint64_t n_words = n_new_words < temp_lex->occupancy ? n_new_words : temp_lex->occupancy;
+    
+    for(size_t i=0;i<n_words;i++)
+    {
+        lexicon_add(new_lexicon, new_items[i]->key, new_items[i]->count, &lex_err);
+    }
+    free(new_items);
+    lexicon_free(temp_lex);
+    
+    // Add old lexicons items into new lexicon
+    lex_err = copy_lexical_items(new_lexicon, comps->cycles[cycle-1].lex);
+
+    // minseg corpus with new lexicon
+    minseg_error ms_err;
+    minseg** temp_parses = malloc(comps->corpus_sz * sizeof(minseg*));
+    for(size_t i=0;i<comps->corpus_sz;i++)
+    {
+        minseg* m = minseg_create(new_lexicon,comps->corpus[i],&ms_err);
+        temp_parses[i] = m;
+    }
+
+    // produce new lexicon with segments from minseg (cycle->lex), prior
+    comps->cycles[cycle].lex = lexicon_create();
+
+    for(size_t i=0;i<comps->corpus_sz;i++)
+    {
+        for(size_t j=0;j<temp_parses[i]->size;j++)
+        {
+            lexicon_add(comps->cycles[cycle].lex,temp_parses[i]->segments[j],1,&lex_err);
+        }
+        //minseg_free(temp_parses[i]);
+    }
+    lexicon_free(new_lexicon);
+    free(temp_parses);
+
+    lherror err;
+    comps->cycles[cycle].prior_length = 
+        lexhnd_get_lexicon_bitlength(comps->alphabet, &comps->cycles[cycle],&err);
+
+    // minseg -> posterior
+    comps->cycles[cycle].parses = malloc(comps->corpus_sz * sizeof(minseg*));
+    for(size_t i=0;i<comps->corpus_sz;i++)
+    {
+        parses[i] = minseg_create(comps->cycles[cycle].lex,comps->corpus[i],&ms_err);
+        comps->cycles[cycle].posterior_length += parses[i]->cost;
+    }
 }
 
 lhcomponents* lexhnd_run(
@@ -272,6 +364,8 @@ lhcomponents* lexhnd_run(
     if(comps == NULL) goto error_exit;
 
     comps->n_cycles = iterations;
+    comps->corpus_sz = corpus_size;
+    comps->corpus = corpus;
 
     comps->cycles = calloc(iterations, sizeof(lhcycle));
     if(comps->cycles == NULL) goto error_exit;
@@ -290,10 +384,12 @@ lhcomponents* lexhnd_run(
     lexhnd_create_first_cycle(comps, corpus,corpus_size, error, error_code);
     if(*error) goto error_exit;
 
-
-
+    for(uint8_t i=1;i<iterations;i++)
+    {
+        lexhnd_cycle(comps,i,n_new_words);    
+        printf("prior = %lf , posterior = %lf\n", comps->cycles[i].prior_length, comps->cycles[i].posterior_length);
+    }
     
-
     return comps;
 error_exit: 
     return NULL;

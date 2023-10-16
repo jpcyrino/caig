@@ -6,6 +6,7 @@
 #include "lexicon.h"
 #include "minseg.h"
 
+
 static double 
 lexicon_lookup(lexicon* lex, const char32_t* word)
 {
@@ -16,20 +17,16 @@ lexicon_lookup(lexicon* lex, const char32_t* word)
     return -1 * log2(prob);
 }
 
-static minseg_error
+static void
 forward_step(lexicon* lex, const char32_t* sentence, char32_t** words, double* parse_cost)
 {
     size_t sentence_length = u32strlen(sentence);
-    minseg_error error = MINSEG_NORMAL;
+    
     double* costs = calloc(sentence_length+1, sizeof(double));
     char32_t* candidate_buffer = calloc(sentence_length + 1, sizeof(char32_t)); 
     char32_t* min_cost_candidate = calloc(sentence_length + 1,sizeof(char32_t));
-    if(costs == NULL || candidate_buffer == NULL || min_cost_candidate == NULL) 
-    {
-        error = MINSEG_MEMORY_ALLOCATION_ERROR;
-        goto exit;
-    }
-    
+    if(costs == NULL || candidate_buffer == NULL || min_cost_candidate == NULL) abort(); 
+
     for(size_t fpos=0;fpos<sentence_length;fpos++)
     {
         double min_cost = DBL_MAX;
@@ -51,24 +48,20 @@ forward_step(lexicon* lex, const char32_t* sentence, char32_t** words, double* p
         }
         costs[fpos+1] = min_cost;
         *parse_cost = min_cost;
+
         words[fpos] = calloc((u32strlen(min_cost_candidate) + 1),sizeof(char32_t));
-        if(words[fpos] == NULL)
-        {
-            for(size_t i=0;i<fpos;i++) free(words[i]);
-            error = MINSEG_MEMORY_ALLOCATION_ERROR;
-            goto exit;
-        }
+        if(words[fpos] == NULL) abort();
+
         u32strcpy(words[fpos],min_cost_candidate); 
     }
 
-exit:
-    free(candidate_buffer); candidate_buffer = NULL;
-    free(min_cost_candidate); min_cost_candidate = NULL;
-    free(costs); costs = NULL;
-    return error;
+    free(candidate_buffer); 
+    free(min_cost_candidate); 
+    free(costs);
+   
 }
 
-static minseg_error 
+static void 
 backtrack(char32_t** words, size_t words_size,char32_t** minseg_words, size_t* minseg_words_size)
 {
     int64_t pos = words_size-1;
@@ -81,14 +74,7 @@ backtrack(char32_t** words, size_t words_size,char32_t** minseg_words, size_t* m
         if(minseg_words != NULL) 
         {
             minseg_words[i] = malloc((wordlen + 1) * sizeof(char32_t)); 
-            if(minseg_words[i] == NULL) 
-            {
-                for(size_t j=0;j<i;j++)
-                {
-                    free(minseg_words[j]);
-                }
-                return MINSEG_MEMORY_ALLOCATION_ERROR;
-            }
+            if(minseg_words[i] == NULL)  abort();
             u32strcpy(minseg_words[i],words[pos]);
         } 
         minseg_words_sz++;
@@ -101,7 +87,7 @@ backtrack(char32_t** words, size_t words_size,char32_t** minseg_words, size_t* m
     if(minseg_words == NULL) 
     {
         *minseg_words_size = minseg_words_sz;
-        goto exit;
+        return;
     }
     
     char32_t* temp;
@@ -111,48 +97,34 @@ backtrack(char32_t** words, size_t words_size,char32_t** minseg_words, size_t* m
         minseg_words[i] = minseg_words[minseg_words_sz-i-1];
         minseg_words[minseg_words_sz-i-1] = temp;
     }
-
-exit:
-    return MINSEG_NORMAL;
 }
 
 
 minseg* 
-minseg_create(lexicon* lex, const char32_t* sentence, minseg_error* error)
+minseg_create(lexicon* lex, const char32_t* sentence)
 {
     minseg* result = NULL;
    
     size_t chosen_words_sz = u32strlen(sentence);
     char32_t** chosen_words = calloc(chosen_words_sz, sizeof(char32_t*));
-    if(chosen_words == NULL) goto malloc_error;
+    if(chosen_words == NULL) abort();
 
     double cost = 0;
-    *error = forward_step(lex,sentence,chosen_words, &cost);
-    if(*error) goto error_exit;
+    forward_step(lex,sentence,chosen_words, &cost);
 
     size_t segments_sz = 0;
-    *error = backtrack(chosen_words, chosen_words_sz, NULL, &segments_sz);
-    if(*error) goto error_exit;
+    backtrack(chosen_words, chosen_words_sz, NULL, &segments_sz);
 
-    result = malloc(sizeof(minseg));
-    if(result == NULL) goto malloc_error;
+    result = malloc(sizeof(minseg)); if(result == NULL) abort();
     result->segments = malloc(segments_sz * sizeof(char32_t*));
-    if(result->segments == NULL) goto malloc_error;
+    if(result->segments == NULL) abort();
 
-    *error = backtrack(chosen_words, chosen_words_sz, result->segments, &segments_sz);
-    if(*error) goto error_exit;
+    backtrack(chosen_words, chosen_words_sz, result->segments, &segments_sz);
     result->size = segments_sz;
     result->cost = cost;
     
     return result;
 
-malloc_error:
-    *error = MINSEG_MEMORY_ALLOCATION_ERROR;
-error_exit: 
-    if(result != NULL) free(result->segments);
-    free(result);
-    free(chosen_words);
-    return NULL;
 }
 
 
