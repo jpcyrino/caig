@@ -42,8 +42,18 @@ int main()
     printf("Carregou o corpus em %lf s\n", sec); 
 
     clock_t proc_s = clock();
-    // run lexhnd_run
+    lexhnd_result* res = lexhnd_run(corpus,CORPUS_SIZE,1,10);
     clock_t proc_e = clock();
+
+
+    sec = (double) (proc_e - proc_s) / CLOCKS_PER_SEC;
+    printf("Primeira iteração em %lfs\n", sec);
+    
+
+    
+
+
+
     
 
     

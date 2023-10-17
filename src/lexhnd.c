@@ -166,27 +166,102 @@ get_lexicon_bitlength(alphabet* ab, lexicon* lex)
 }
 
 
+typedef struct lexhnd_parse
+{
+    char32_t** segments;
+    size_t size;
+    size_t free_pos;
+} parse;
+
+#define PARSE_SEGMENTS_BUFFER_INIT_SZ 2000
+
+static parse*
+parse_create()
+{
+    parse* prs = malloc(sizeof(parse));
+    if(prs == NULL) abort();
+
+    prs->segments = malloc(PARSE_SEGMENTS_BUFFER_INIT_SZ * sizeof(char32_t*));
+    if(prs->segments == NULL) abort();
+    for(size_t i=0;i<PARSE_SEGMENTS_BUFFER_INIT_SZ;i++) 
+        prs->segments[i] = NULL;
+
+    prs->size = PARSE_SEGMENTS_BUFFER_INIT_SZ;
+    prs->free_pos = 0;
+    return prs;
+}
+
+static void
+parse_add(parse* parse, char32_t* str)
+{
+    if(parse->free_pos > parse->size-10)
+    {
+        parse->size = parse->size + PARSE_SEGMENTS_BUFFER_INIT_SZ;
+        parse->segments = realloc(parse->segments, 
+                parse->size * sizeof(char32_t*));
+        if(parse->segments == NULL) abort();
+        
+    }
+
+    parse->segments[parse->free_pos] = 
+        malloc((u32strlen(str) + 1) * sizeof(char32_t));
+    u32strcpy(parse->segments[parse->free_pos],str);
+    parse->free_pos++;
+}
+
+
+static void
+parse_free(parse* parse)
+{
+    for(size_t i=0;i<parse->size;i++)
+        free(parse->segments[i]);
+    free(parse->segments);
+    free(parse);
+}
+
 typedef struct lexhnd_iteration
 {
     lexicon* lexicon;
-    char32_t** parse;
+    parse* parse;
     double prior;
     double posterior;
 } iteration;
+
+
 
 static iteration
 iteration_zero(alphabet* ab, char32_t** corpus, size_t corpus_sz)
 {
     iteration result;
+    lexicon* lex = lexicon_create();
 
+    for(size_t i=0;i<ab->alphabet_sz;i++)
+    {
+        char32_t letter[2];
+        letter[0] = ab->alphabet[i];
+        letter[1] = 0;
+        lexicon_add(lex,letter,ab->char_counts[i]);
+    }
 
-
+    result.lexicon = lex;
+    result.prior = get_lexicon_bitlength(ab,lex);
+    result.parse = parse_create();
+    result.posterior = 0;
+    for(size_t i=0;i<corpus_sz;i++)
+    {
+        minseg* mseg = minseg_create(lex,corpus[i]);
+        result.posterior += mseg->cost;
+        for(size_t j=0;j<mseg->size;j++)
+            parse_add(result.parse,mseg->segments[j]);     
+        minseg_free(mseg);
+    }
+    
     return result;
 
 }
 
 static iteration
-iteration_n(alphabet*ab, char32_t**corpus, size_t corpus_sz, char32_t** past_parse)
+iteration_n(size_t it_n,alphabet*ab, char32_t**corpus, size_t corpus_sz, parse* past_parse)
 {
     iteration result;
 
@@ -211,9 +286,32 @@ lexhnd_run(
        result->priors == NULL ||
        result->posteriors == NULL) abort();
 
+    alphabet* ab = alphabet_create();
+    alphabet_setup(ab,corpus,corpus_size);
+
     //run iteration 0
-    //run other iterations
-    
+    iteration it = iteration_zero(ab,corpus,corpus_size);
+    parse* past_parse = it.parse;
+
+    /* UB HERE !!!
+    result->lexicons[0] = it.lexicon;
+    result->priors[0] = it.prior;
+    result->posteriors[0] = it.posterior;
+   
+    //run further iterations
+    for(size_t i=1;i<n_iterations;i++)
+    {
+        it = iteration_n(i,ab,corpus,corpus_size,past_parse);
+        parse_free(past_parse);
+        result->lexicons[i] = it.lexicon;
+        result->priors[i] = it.prior;
+        result->posteriors[i] = it.posterior;
+        past_parse = it.parse;
+
+    } */
+
+    parse_free(past_parse);
+    alphabet_free(ab);
 
     return result;
 }

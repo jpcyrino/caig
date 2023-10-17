@@ -114,7 +114,7 @@ add_item(litem** items, size_t* occupancy, size_t capacity, const char32_t* word
             if(item == NULL) abort();
             create_item(word,count, item);
             items[slot] = item;
-            *occupancy += count;
+            *occupancy += 1;
             return;
         }
 
@@ -170,7 +170,7 @@ lexicon_add(lexicon* lexicon, const char32_t* word, size_t count)
 { 
     add_item(lexicon->table,&lexicon->occupancy,lexicon->capacity,word, count);
    
-    lexicon->total_counts++;
+    lexicon->total_counts += count;
     if((float) lexicon->occupancy/lexicon->capacity >= LEXICON_LOAD_FACTOR) 
     {
        rehash(lexicon);
