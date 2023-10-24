@@ -337,23 +337,21 @@ iteration_n(size_t it_n,uint8_t n_new_words, alphabet*ab, char32_t**corpus, size
     }
 
  
-    // Minseg 1 
-    parse* first_parse = parse_create();
+    // Minseg 1
     for(size_t i=0;i<corpus_sz;i++)
     {
         minseg* m1 = minseg_create(temp,corpus[i]);
         for(size_t j=0;j<m1->size;j++)
-            parse_add(first_parse,m1->segments[j]);
+            parse_add(old_parse,m1->segments[j]);
         minseg_free(m1);
     }
     
     // Lexicon
     lexicon* lexicon_n = lexicon_create();
-    while(first_parse->pos) lexicon_add(lexicon_n,parse_pop(first_parse),1);
+    while(old_parse->pos) lexicon_add(lexicon_n,parse_pop(old_parse),1);
     
 
     // Minseg 2
-    parse* second_parse = parse_create();
     double priors = get_lexicon_bitlength(ab,lexicon_n);
     double posteriors = 0;
     char32_t join_buffer[JOIN_BUFFER_SZ];
@@ -364,27 +362,25 @@ iteration_n(size_t it_n,uint8_t n_new_words, alphabet*ab, char32_t**corpus, size
         for(size_t j=0;j<m2->size;j+=2)
         { 
             if(j+1 == m2->size)
-                parse_add(second_parse,m2->segments[j]);      
+                parse_add(old_parse,m2->segments[j]);      
             else
             {
                 u32strjoin(join_buffer,m2->segments[j],m2->segments[j+1]);
-                parse_add(second_parse,join_buffer);
+                parse_add(old_parse,join_buffer);
             } 
         }
         minseg_free(m2);
     }
-
     res->lexicons[it_n] = lexicon_n;
     res->posteriors[it_n] = posteriors;
     res->priors[it_n] = priors;
 
 
-    parse_free(first_parse); 
     lexicon_free(candidate_new_words); 
     lexicon_free(temp);
     free(litems);
 
-    return second_parse;
+    return old_parse;
 
 }
 
