@@ -189,6 +189,24 @@ parse_create()
     return prs;
 }
 
+static char32_t*
+parse_pop(parse* parse)
+{
+    if(!parse->pos) return parse->segments;
+    parse->pos--;
+    while(1)
+    {
+        if(!parse->pos) return parse->segments;
+        parse->pos--;
+        if(!parse->pos) return parse->segments;
+        if(!parse->segments[parse->pos]) 
+        {
+            parse->pos++;
+            return parse->segments + parse->pos;
+        }
+    }
+}
+
 
 static void
 parse_add(parse* parse, char32_t* str)
@@ -284,22 +302,29 @@ iteration_zero(alphabet* ab, char32_t** corpus, size_t corpus_sz,
     return res_parse;
 }
 
-static void
+static parse*
 iteration_n(size_t it_n,uint8_t n_new_words, alphabet*ab, char32_t**corpus, size_t corpus_sz, 
-        lexhnd_result* res, parse* res_parse)
+        lexhnd_result* res, parse* old_parse)
 {
     
     lexicon* candidate_new_words = lexicon_create();
+    while(old_parse->pos)
+        lexicon_add(candidate_new_words,parse_pop(old_parse),1);
+    
+    litem** litems = malloc(candidate_new_words->occupancy * sizeof(litem*));
+    lexicon_get_items(candidate_new_words, litems);
 
 
+    lexicon_free(candidate_new_words);
 
     // Get n most frequent joins
     // Minseg 
 
 
     // Add results to lexicon
-    res->lexicons[it_n] = lexicon_create();
+    //res->lexicons[it_n] = lexicon_create();
 
+    return old_parse;
 
 }
 
@@ -326,6 +351,8 @@ lexhnd_run(
     
 
     parse* prs = iteration_zero(ab,corpus,corpus_size,result);
+
+        iteration_n(1,10,ab,corpus,corpus_size,result,prs);
 
     /*
     for(size_t i=1;i<n_iterations;i++)
