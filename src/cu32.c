@@ -83,7 +83,6 @@ int8_t u32streq(const char32_t* str_a, const char32_t* str_b)
 
 size_t u8to32(const char* u8str, char32_t* u32str)
 {
-    size_t bytelen = strlen(u8str);
     size_t runelen = u8strlen(u8str);
 
     for(size_t i=0;i<runelen;i++)
@@ -128,7 +127,6 @@ size_t u32to8(const char32_t* u32str, char* u8str)
     // iterate through every byte of u32str with bytepos
     // every non-zero byte is transfered to the next position (j) 
     // in u8str
-    size_t j = 0;
     for(size_t i=0;i<u32strlen(u32str);i++)
     {
         if(u32str[i] >= FOUR_BYTES) 

@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
     int32_t n_of_n_words = argc > 1 ? strtol(argv[1],NULL,10) : 25; 
     printf("Analisando com %d novos tokens\n", n_of_n_words);
     
-    clock_t tot_s = clock(), corpus_s = clock();
+    clock_t corpus_s = clock();
     FILE* fptr = fopen("./test_res/wordlist.txt","r");
     if(fptr == NULL) 
     { 

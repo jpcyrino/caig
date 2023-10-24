@@ -39,7 +39,6 @@ lexhnd_alphabet
 static void 
 alphabet_resize(alphabet* ab)
 {
-    size_t new_alphabet_sz = 2 * ab->alphabet_sz; 
     char32_t* new_alphabet = calloc(2 * ab->alphabet_sz,sizeof(char32_t));
     if(new_alphabet == NULL) abort();
 
@@ -220,12 +219,6 @@ parse_add(parse* parse, char32_t* str)
     u32strcpy(parse->segments + parse->pos,str); 
     parse->pos = parse->pos + u32strlen(str) + 1;
     
-}
-
-static void
-parse_clear(parse* parse)
-{
-    parse->pos = 0;
 }
 
 static void
