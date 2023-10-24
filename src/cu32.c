@@ -105,7 +105,7 @@ size_t u8to32(const char* u8str, char32_t* u32str)
         }
         u32str[i] = u32c;
     }
-    u32str[runelen] = 0;
+    u32str[runelen] = '\0';
     return runelen;
 }
 

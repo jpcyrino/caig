@@ -5,6 +5,7 @@
 #include <float.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include "lexicon.h"
 #include "lexhnd.h"
 #include "cu32.h"
@@ -82,6 +83,7 @@ alphabet_add_word(alphabet* ab, char32_t* word)
         alphabet_add(ab,*word);
         word++;
     }
+    assert(*word == 0);
 }
 
 static alphabet* 
@@ -168,9 +170,9 @@ get_lexicon_bitlength(alphabet* ab, lexicon* lex)
 
 typedef struct lexhnd_parse
 {
-    char32_t** segments;
+    char32_t* segments;
     size_t size;
-    size_t free_pos;
+    size_t pos;
 } parse;
 
 #define PARSE_SEGMENTS_BUFFER_INIT_SZ 2000
@@ -180,61 +182,70 @@ parse_create()
 {
     parse* prs = malloc(sizeof(parse));
     if(prs == NULL) abort();
-
-    prs->segments = malloc(PARSE_SEGMENTS_BUFFER_INIT_SZ * sizeof(char32_t*));
+    prs->segments = malloc(PARSE_SEGMENTS_BUFFER_INIT_SZ * sizeof(char32_t));
     if(prs->segments == NULL) abort();
-    for(size_t i=0;i<PARSE_SEGMENTS_BUFFER_INIT_SZ;i++) 
-        prs->segments[i] = NULL;
-
     prs->size = PARSE_SEGMENTS_BUFFER_INIT_SZ;
-    prs->free_pos = 0;
+    prs->pos = 0;
     return prs;
 }
+
 
 static void
 parse_add(parse* parse, char32_t* str)
 {
-    if(parse->free_pos > parse->size-10)
+    if(parse->pos > parse->size - 50) 
     {
-        parse->size = parse->size + PARSE_SEGMENTS_BUFFER_INIT_SZ;
-        parse->segments = realloc(parse->segments, 
-                parse->size * sizeof(char32_t*));
-        if(parse->segments == NULL) abort();
-        
+        parse->size = 2 * parse->size;
+        parse->segments = realloc(parse->segments, parse->size * sizeof(char32_t));
+        if(parse->segments == NULL) abort();  
     }
-
-    parse->segments[parse->free_pos] = 
-        malloc((u32strlen(str) + 1) * sizeof(char32_t));
-    u32strcpy(parse->segments[parse->free_pos],str);
-    parse->free_pos++;
+    u32strcpy(parse->segments + parse->pos,str); 
+    parse->pos = parse->pos + u32strlen(str) + 1;
+    
 }
 
+static void
+parse_clear(parse* parse)
+{
+    parse->pos = 0;
+}
 
 static void
 parse_free(parse* parse)
 {
-    for(size_t i=0;i<parse->size;i++)
-        free(parse->segments[i]);
     free(parse->segments);
     free(parse);
 }
 
-typedef struct lexhnd_iteration
+
+static void 
+u32strjoin(char32_t* buffer, char32_t* fst, char32_t* snd)
 {
-    lexicon* lexicon;
-    parse* parse;
-    double prior;
-    double posterior;
-} iteration;
+    size_t len_1 = u32strlen(fst);
+    size_t len_2 = u32strlen(snd);
+    size_t pos = 0;
+    for(size_t i=0;i<len_1;i++)
+    {
+        buffer[pos] = fst[i];
+        pos++;
+    }
+    for(size_t i=0;i<len_2;i++)
+    {
+        buffer[pos] = snd[i];
+        pos++;
+    }
+    buffer[pos] = '\0';  
+}
 
+#define JOIN_BUFFER_SZ 100
 
-
-static iteration
-iteration_zero(alphabet* ab, char32_t** corpus, size_t corpus_sz)
+static parse*
+iteration_zero(alphabet* ab, char32_t** corpus, size_t corpus_sz, 
+        lexhnd_result* res)
 {
-    iteration result;
+    
     lexicon* lex = lexicon_create();
-
+    
     for(size_t i=0;i<ab->alphabet_sz;i++)
     {
         char32_t letter[2];
@@ -243,29 +254,53 @@ iteration_zero(alphabet* ab, char32_t** corpus, size_t corpus_sz)
         lexicon_add(lex,letter,ab->char_counts[i]);
     }
 
-    result.lexicon = lex;
-    result.prior = get_lexicon_bitlength(ab,lex);
-    result.parse = parse_create();
-    result.posterior = 0;
+    double priors = get_lexicon_bitlength(ab,lex);
+    double posteriors = 0;
+    parse* res_parse = parse_create();
+   
+    char32_t join_buffer[JOIN_BUFFER_SZ];
     for(size_t i=0;i<corpus_sz;i++)
     {
         minseg* mseg = minseg_create(lex,corpus[i]);
-        result.posterior += mseg->cost;
-        for(size_t j=0;j<mseg->size;j++)
-            parse_add(result.parse,mseg->segments[j]);     
+        posteriors += mseg->cost;
+        for(size_t j=0;j<mseg->size;j+=2)
+        { 
+            if(j+1 == mseg->size)
+                parse_add(res_parse,mseg->segments[j]);      
+            else
+            {
+                u32strjoin(join_buffer,mseg->segments[j],mseg->segments[j+1]);
+                parse_add(res_parse,join_buffer);
+            } 
+        }
         minseg_free(mseg);
     }
     
-    return result;
+    res->lexicons[0] = lex;
+    res->priors[0] = priors;
+    res->posteriors[0] = posteriors;
 
+
+    return res_parse;
 }
 
-static iteration
-iteration_n(size_t it_n,alphabet*ab, char32_t**corpus, size_t corpus_sz, parse* past_parse)
+static void
+iteration_n(size_t it_n,uint8_t n_new_words, alphabet*ab, char32_t**corpus, size_t corpus_sz, 
+        lexhnd_result* res, parse* res_parse)
 {
-    iteration result;
+    
+    lexicon* candidate_new_words = lexicon_create();
 
-    return result;
+
+
+    // Get n most frequent joins
+    // Minseg 
+
+
+    // Add results to lexicon
+    res->lexicons[it_n] = lexicon_create();
+
+
 }
 
 lexhnd_result* 
@@ -288,29 +323,17 @@ lexhnd_run(
 
     alphabet* ab = alphabet_create();
     alphabet_setup(ab,corpus,corpus_size);
+    
 
-    //run iteration 0
-    iteration it = iteration_zero(ab,corpus,corpus_size);
-    parse* past_parse = it.parse;
+    parse* prs = iteration_zero(ab,corpus,corpus_size,result);
 
-    /* UB HERE !!!
-    result->lexicons[0] = it.lexicon;
-    result->priors[0] = it.prior;
-    result->posteriors[0] = it.posterior;
-   
-    //run further iterations
+    /*
     for(size_t i=1;i<n_iterations;i++)
     {
-        it = iteration_n(i,ab,corpus,corpus_size,past_parse);
-        parse_free(past_parse);
-        result->lexicons[i] = it.lexicon;
-        result->priors[i] = it.prior;
-        result->posteriors[i] = it.posterior;
-        past_parse = it.parse;
-
+        iteration_n(i,n_new_words,ab,corpus,corpus_size,result,prs);
     } */
-
-    parse_free(past_parse);
+    
+    parse_free(prs);
     alphabet_free(ab);
 
     return result;
