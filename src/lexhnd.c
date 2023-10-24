@@ -302,29 +302,89 @@ iteration_zero(alphabet* ab, char32_t** corpus, size_t corpus_sz,
     return res_parse;
 }
 
+static lexicon* 
+lexicon_copy(lexicon* origin)
+{
+    lexicon* copy = lexicon_create();
+    for(size_t i=0;i<origin->capacity;i++)
+    {
+        if(origin->table[i] != NULL)
+        {
+            lexicon_add(copy,origin->table[i]->key, origin->table[i]->count);
+        }
+    }
+    return copy;
+}
+
 static parse*
 iteration_n(size_t it_n,uint8_t n_new_words, alphabet*ab, char32_t**corpus, size_t corpus_sz, 
         lexhnd_result* res, parse* old_parse)
 {
     
-    lexicon* candidate_new_words = lexicon_create();
-    while(old_parse->pos)
-        lexicon_add(candidate_new_words,parse_pop(old_parse),1);
-    
+    lexicon* candidate_new_words = lexicon_create(); 
+
+    // Populate candidate lexicon with joint items from old parse
+    while(old_parse->pos) lexicon_add(candidate_new_words,parse_pop(old_parse),1);
     litem** litems = malloc(candidate_new_words->occupancy * sizeof(litem*));
     lexicon_get_items(candidate_new_words, litems);
 
+    // Create temporary lexicon with old lexicon + n most frequent 
+    // new joint items
+    lexicon* temp = lexicon_copy(res->lexicons[it_n-1]);
+    for(size_t i=0;i<n_new_words;i++)
+    {
+        lexicon_add(temp,litems[i]->key,litems[i]->count);
+    }
 
-    lexicon_free(candidate_new_words);
+ 
+    // Minseg 1 
+    parse* first_parse = parse_create();
+    for(size_t i=0;i<corpus_sz;i++)
+    {
+        minseg* m1 = minseg_create(temp,corpus[i]);
+        for(size_t j=0;j<m1->size;j++)
+            parse_add(first_parse,m1->segments[j]);
+        minseg_free(m1);
+    }
+    
+    // Lexicon
+    lexicon* lexicon_n = lexicon_create();
+    while(first_parse->pos) lexicon_add(lexicon_n,parse_pop(first_parse),1);
+    
 
-    // Get n most frequent joins
-    // Minseg 
+    // Minseg 2
+    parse* second_parse = parse_create();
+    double priors = get_lexicon_bitlength(ab,lexicon_n);
+    double posteriors = 0;
+    char32_t join_buffer[JOIN_BUFFER_SZ];
+    for(size_t i=0;i<corpus_sz;i++)
+    {
+        minseg* m2 = minseg_create(lexicon_n,corpus[i]);
+        posteriors += m2->cost;
+        for(size_t j=0;j<m2->size;j+=2)
+        { 
+            if(j+1 == m2->size)
+                parse_add(second_parse,m2->segments[j]);      
+            else
+            {
+                u32strjoin(join_buffer,m2->segments[j],m2->segments[j+1]);
+                parse_add(second_parse,join_buffer);
+            } 
+        }
+        minseg_free(m2);
+    }
+
+    res->lexicons[it_n] = lexicon_n;
+    res->posteriors[it_n] = posteriors;
+    res->priors[it_n] = priors;
 
 
-    // Add results to lexicon
-    //res->lexicons[it_n] = lexicon_create();
+    parse_free(first_parse); 
+    lexicon_free(candidate_new_words); 
+    lexicon_free(temp);
+    free(litems);
 
-    return old_parse;
+    return second_parse;
 
 }
 
@@ -351,14 +411,11 @@ lexhnd_run(
     
 
     parse* prs = iteration_zero(ab,corpus,corpus_size,result);
-
-        iteration_n(1,10,ab,corpus,corpus_size,result,prs);
-
-    /*
+    
     for(size_t i=1;i<n_iterations;i++)
     {
-        iteration_n(i,n_new_words,ab,corpus,corpus_size,result,prs);
-    } */
+        prs = iteration_n(i,n_new_words,ab,corpus,corpus_size,result,prs);
+    }
     
     parse_free(prs);
     alphabet_free(ab);

@@ -44,21 +44,24 @@ int main()
     printf("Carregou o corpus em %lf s\n", sec); 
 
     clock_t proc_s = clock();
-    lexhnd_result* res = lexhnd_run(corpus,i,1,10);
+    lexhnd_result* res = lexhnd_run(corpus,i,15,25);
     clock_t proc_e = clock();
 
 
     sec = (double) (proc_e - proc_s) / CLOCKS_PER_SEC;
-    printf("Primeira iteração em %lfs\n", sec);
+    printf("Iteracoes em %lfs\n", sec);
+
+    for(int i=0;i<15;i++)
+    {
+        printf("%3d pri %10lf pos %10lf h %10lf\n", 
+                i,
+                res->priors[i],
+                res->posteriors[i],
+                res->priors[i] + res->posteriors[i]
+              );
+    }
     
 
-    
-
-
-
-    
-
-    
     for(size_t j=0;j<CORPUS_SIZE;j++)
     {
         free(corpus[j]);
