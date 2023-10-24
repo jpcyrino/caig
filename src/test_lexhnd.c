@@ -3,14 +3,17 @@
 #include <string.h>
 #include <time.h>
 #include <assert.h>
+#include <stdlib.h>
 #include "lexhnd.h"
 #include "cu32.h"
 
 #define CORPUS_SIZE 710813
 #define WORD_SZ 80
 
-int main()
+int main(int argc, char* argv[])
 {
+    int32_t n_of_n_words = argc > 1 ? strtol(argv[1],NULL,10) : 25; 
+    printf("Analisando com %d novos tokens\n", n_of_n_words);
     
     clock_t tot_s = clock(), corpus_s = clock();
     FILE* fptr = fopen("./test_res/wordlist.txt","r");
@@ -44,21 +47,25 @@ int main()
     printf("Carregou o corpus em %lf s\n", sec); 
 
     clock_t proc_s = clock();
-    lexhnd_result* res = lexhnd_run(corpus,i,15,25);
+    lexhnd_result* res = lexhnd_run(corpus,i,15,n_of_n_words);
     clock_t proc_e = clock();
 
 
     sec = (double) (proc_e - proc_s) / CLOCKS_PER_SEC;
     printf("Iteracoes em %lfs\n", sec);
 
+    double old_h = 0;
     for(int i=0;i<15;i++)
     {
-        printf("%3d pri %10lf pos %10lf h %10lf\n", 
+        double h = res->priors[i] + res->posteriors[i];
+        printf("%3d pri %20lf pos %20lf h %20lf delta %20lf\n", 
                 i,
                 res->priors[i],
                 res->posteriors[i],
-                res->priors[i] + res->posteriors[i]
+                h,
+                i == 0? h : h - old_h
               );
+        old_h = h;
     }
     
 
