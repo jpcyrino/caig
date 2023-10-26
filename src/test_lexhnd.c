@@ -23,25 +23,31 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    
+     
     char buffer[WORD_SZ] = {'\0'};
     char32_t** corpus = calloc(CORPUS_SIZE,sizeof(char32_t*)); 
-    
+
     size_t i = 0;
     while(fgets(buffer,WORD_SZ-1,fptr))
     {
         buffer[strcspn(buffer,"\n")] = '\0'; 
-        char32_t* word = calloc(WORD_SZ, sizeof(char32_t));
+       char32_t* word = calloc(WORD_SZ, sizeof(char32_t));
+        
         if(word == NULL)
         {
             printf("Word allocation error!\n");
             return -1;
-        }
+        } 
+
+
         u8to32(buffer,word);
         corpus[i] = word;
         i++;
     }
 
+    fclose(fptr);
+
+    
     clock_t corpus_end = clock();
     double sec = ((double) corpus_end - corpus_s) / CLOCKS_PER_SEC;
     printf("Carregou o corpus em %lf s\n", sec); 

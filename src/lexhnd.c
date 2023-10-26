@@ -174,7 +174,7 @@ typedef struct lexhnd_parse
     size_t pos;
 } parse;
 
-#define PARSE_SEGMENTS_BUFFER_INIT_SZ 2000
+#define PARSE_SEGMENTS_BUFFER_INIT_SZ 50000
 
 static parse*
 parse_create()
@@ -395,11 +395,13 @@ lexhnd_run(
        result->priors == NULL ||
        result->posteriors == NULL) abort();
 
+
     alphabet* ab = alphabet_create();
     alphabet_setup(ab,corpus,corpus_size);
     
 
     parse* prs = iteration_zero(ab,corpus,corpus_size,result);
+
     
     for(size_t i=1;i<n_iterations;i++)
     {

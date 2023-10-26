@@ -6,6 +6,7 @@
 #include "lexicon.h"
 #include "minseg.h"
 
+#define SENTENCE_LENGTH 200
 
 static double 
 lexicon_lookup(lexicon* lex, const char32_t* word)
@@ -22,10 +23,9 @@ forward_step(lexicon* lex, const char32_t* sentence, char32_t** words, double* p
 {
     size_t sentence_length = u32strlen(sentence);
     
-    double* costs = calloc(sentence_length+1, sizeof(double));
-    char32_t* candidate_buffer = calloc(sentence_length + 1, sizeof(char32_t)); 
-    char32_t* min_cost_candidate = calloc(sentence_length + 1,sizeof(char32_t));
-    if(costs == NULL || candidate_buffer == NULL || min_cost_candidate == NULL) abort(); 
+    double costs[200];
+    char32_t candidate_buffer[200]; 
+    char32_t min_cost_candidate[200];
 
     for(size_t fpos=0;fpos<sentence_length;fpos++)
     {
@@ -54,10 +54,6 @@ forward_step(lexicon* lex, const char32_t* sentence, char32_t** words, double* p
 
         u32strcpy(words[fpos],min_cost_candidate); 
     }
-
-    free(candidate_buffer); 
-    free(min_cost_candidate); 
-    free(costs);
    
 }
 
