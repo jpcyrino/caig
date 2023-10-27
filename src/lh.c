@@ -298,7 +298,7 @@ minseg_forward(lexicon* lex, mem_pool* str_storage, char*str,
 }
 
 static char*
-minseg_backward(lexicon* lex, mem_pool* storage, char* segment, uint32_t* n_segments, size_t fwd_allocated_mem)
+minseg_backward(lexicon* lex, mem_pool* storage, char* segment, uint32_t* n_segments, size_t* allocated_mem)
 {
     char* segment_pointers[MINSEG_DEFAULT_BUFFER_SZ]; // This buffer can be shorter
 
@@ -317,10 +317,12 @@ minseg_backward(lexicon* lex, mem_pool* storage, char* segment, uint32_t* n_segm
     } 
     
     // Release memory allocated by minseg_forward
-    mem_pop(storage, fwd_allocated_mem);
+    mem_pop(storage, *allocated_mem);
 
     // Rewrite at the beggining of memory previously allocated by minseg_forward
-    char* init_of_segments = (char*) mem_push(storage, (strlen(segment_pointers[segment_pointers_index])+1) * sizeof(char));
+
+    *allocated_mem = strlen(segment_pointers[segment_pointers_index]) + 1;
+    char* init_of_segments = (char*) mem_push(storage, (*allocated_mem) * sizeof(char));
     //assert(strcmp(init_of_segments, segment_pointers[0]) == 0);
 
     strcpy(init_of_segments,segment_pointers[segment_pointers_index]);
@@ -329,13 +331,23 @@ minseg_backward(lexicon* lex, mem_pool* storage, char* segment, uint32_t* n_segm
     
     while(segment_pointers_index >= 0)
     {
-        char* next_segment = (char*) mem_push(storage, (strlen(segment_pointers[segment_pointers_index])+1)*sizeof(char));
+        size_t mem_size = strlen(segment_pointers[segment_pointers_index]) + 1;
+        char* next_segment = (char*) mem_push(storage, mem_size*sizeof(char));
+        *allocated_mem += mem_size;
         strcpy(next_segment,segment_pointers[segment_pointers_index]);
         segment_pointers_index--;
         *n_segments+=1;
     }
 
     return init_of_segments;    
+}
+
+char* 
+minseg(char* sentence, lexicon* lex, mem_pool* storage, uint32_t* out_n_segments, size_t* out_mem_size, double* out_cost)
+{
+    char* segs = minseg_forward(lex,storage,sentence,out_n_segments,out_cost,out_mem_size);
+    segs = minseg_backward(lex,storage,segs,out_n_segments,out_mem_size);
+    return segs;
 }
 
 
@@ -369,9 +381,9 @@ static void load_word_list(mem_pool* pool, char* filename, size_t* count)
 
 
 int main()
-{
-    mem_pool* corpus = create_mem_pool();
-    lexicon* le = lexicon_create(corpus);
+{ 
+    mem_pool* corpus = create_mem_pool(); 
+    lexicon* le = lexicon_create(corpus); 
     size_t count;
     load_word_list(corpus,"./test_res/wordlist.txt",&count);
     int i=0;
@@ -384,24 +396,40 @@ int main()
        i++;
     }
 
-    /* 
-    char buff[50];
-    printf("Palavra a pesquisar: ");
-    scanf("%s",buff);
-    uint64_t cnt = lexicon_get_count(le, buff);
-    printf("Contagem da palavra %s: %llu\n", buff, cnt);
-    */
+     
+
     uint32_t n;
     size_t am;
     double cst;
-    char* segs = minseg_forward(le, corpus,"osapóstolosdejesuseseusamigos", &n, &cst, &am);
 
-    segs = minseg_backward(le,corpus,segs,&n,am);
-    for(int i=0;i<n;i++)
+    printf("Teste minseg. Memória total alocada com corpus e léxico: %zu\n\n", corpus->size);
+    while(1)
     {
-        printf("%-2d %s\n",i,segs);
-        segs = str_stack_next(segs);
+
+        char buff[144];
+        printf("Frase sem espaços: ");
+        scanf("%s",buff);
+
+        if(strcmp(buff,"q") ==0) break;
+
+        char* segs = minseg(buff,le,corpus,&n,&am,&cst);
+
+        printf("Custo: %lf\nSegmentos: %u\nMemória alocada: %zu\nSegmentos abaixo:\n",cst,n,am); 
+        for(int i=0;i<n;i++)
+        {
+            printf("%-2d %s\n",i,segs);
+            segs = str_stack_next(segs);
+        }
+        printf("\nPosição antes da liberação de memória: %zu\n", corpus->pos);
+        mem_pop(corpus,am);
+        printf("Posição após a liberação de memória: %zu\n\n", corpus->pos);
     }
+
+    printf("\nEscrevendo a memória no arquivo dump.bin...\n");
+    FILE* fptr = fopen("dump.bin","wb");
+    size_t bytes = fwrite((char*) corpus->data,sizeof(char),corpus->pos,fptr);
+    fclose(fptr);
+    printf("%zu bytes escritos\n", bytes);
 
     return 0;
 }
