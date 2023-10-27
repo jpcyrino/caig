@@ -2,8 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
 #include <string.h>
 #include <wchar.h>
+#include <float.h>
+#include <math.h>
 
 
 //
@@ -147,6 +150,14 @@ lexicon_get_count(lexicon*lex, char* key)
     }
 }
 
+static double
+lexicon_get_cost(lexicon* lex, char* key)
+{
+    uint64_t count = lexicon_get_count(lex,key);
+    if(!count) return DBL_MAX;
+    return log2((double) count/lex->total_counts) * -1;
+}
+
 static bool
 lexicon_add_item(lexicon* lex, char* key, uint64_t count, bool copy_key)
 {
@@ -224,17 +235,109 @@ lexicon_insert(lexicon* lex, char* key, uint64_t count)
 // MINSEG
 //
 
-#define MINSEG_MAX_CHARS_LENGTH 1024
+static char* str_stack_next(char* str)
+{
+    return str + (strlen(str) + 1);
+}
+
+static char* str_stack_prev(char* str)
+{
+    str--;
+    while(*(str - 1)) str--;
+    return str;
+}
+
+#define MINSEG_DEFAULT_BUFFER_SZ 1024
 
 static char*
-minseg_forward(lexicon* lex, char*str, uint32_t* segments, double* cost)
+minseg_forward(lexicon* lex, mem_pool* str_storage, char*str, 
+        uint32_t* n_segments, double* cost, size_t* allocated_mem)
 {
-    if(MINSEG_MAX_CHARS_LENGTH < strlen(str) + 1) return NULL;
-    double costs[MINSEG_MAX_CHARS_LENGTH + 1];
-    char* candidate_buff[MINSEG_MAX_CHARS_LENGTH];
+    *n_segments = 0;
+    *cost = 0;
+    *allocated_mem = 0;
 
-    return NULL;
+    char* segment = NULL;
+    size_t len = strlen(str);
+    if(MINSEG_DEFAULT_BUFFER_SZ < len + 1) return NULL;
+    double costs[MINSEG_DEFAULT_BUFFER_SZ + 1] = {0};
+    char candidate_buff[MINSEG_DEFAULT_BUFFER_SZ];
+    char min_cost_candidate[MINSEG_DEFAULT_BUFFER_SZ];
+    size_t i = 1, j = 0;
+    while(i < len)
+    {
+        double min_cost = DBL_MAX;
+        j=0;
+        while(j <= i)
+        {
+            memset(candidate_buff,0,MINSEG_DEFAULT_BUFFER_SZ);
+            strncpy(candidate_buff,str+j,i-j+1);
+            double cost  = costs[j] + lexicon_get_cost(lex, candidate_buff);
+            
+            if(cost < min_cost)
+            {
+                min_cost = cost;
+                memset(min_cost_candidate,0,MINSEG_DEFAULT_BUFFER_SZ);
+                strcpy(min_cost_candidate,candidate_buff);
+            }
+            //utf8_next(str,&j);
+            j++;
+        }
+        costs[i+1] = min_cost;
+        *cost = min_cost;
+
+        segment = (char*) mem_push(str_storage,(strlen(min_cost_candidate)+1) * sizeof(char));
+        *allocated_mem += (strlen(min_cost_candidate)+1) *sizeof(char);
+        strcpy(segment,min_cost_candidate);
+        *n_segments += 1;
+      
+        //utf8_next(str,&i);
+        i++;
+    }
+    return segment;
 }
+
+static char*
+minseg_backward(lexicon* lex, mem_pool* storage, char* segment, uint32_t* n_segments, size_t fwd_allocated_mem)
+{
+    char* segment_pointers[MINSEG_DEFAULT_BUFFER_SZ]; // This buffer can be shorter
+
+    int64_t segment_pointers_index=0;
+    int64_t n_segment = (int64_t) *n_segments;
+    while(n_segment>=0)
+    {
+        segment_pointers[segment_pointers_index] = segment;
+        size_t len = strlen(segment);
+        for(size_t j=0;j<len;j++)
+        {
+            segment = str_stack_prev(segment);
+            n_segment--;
+        }
+        if(n_segment > 0) segment_pointers_index++;
+    } 
+    
+    // Release memory allocated by minseg_forward
+    mem_pop(storage, fwd_allocated_mem);
+
+    // Rewrite at the beggining of memory previously allocated by minseg_forward
+    char* init_of_segments = (char*) mem_push(storage, (strlen(segment_pointers[segment_pointers_index])+1) * sizeof(char));
+    //assert(strcmp(init_of_segments, segment_pointers[0]) == 0);
+
+    strcpy(init_of_segments,segment_pointers[segment_pointers_index]);
+    segment_pointers_index--;
+    *n_segments = 1;
+    
+    while(segment_pointers_index >= 0)
+    {
+        char* next_segment = (char*) mem_push(storage, (strlen(segment_pointers[segment_pointers_index])+1)*sizeof(char));
+        strcpy(next_segment,segment_pointers[segment_pointers_index]);
+        segment_pointers_index--;
+        *n_segments+=1;
+    }
+
+    return init_of_segments;    
+}
+
 
 //
 // CORPUS LOAD
@@ -281,13 +384,25 @@ int main()
        i++;
     }
 
-    
+    /* 
     char buff[50];
     printf("Palavra a pesquisar: ");
     scanf("%s",buff);
     uint64_t cnt = lexicon_get_count(le, buff);
     printf("Contagem da palavra %s: %llu\n", buff, cnt);
-    
+    */
+    uint32_t n;
+    size_t am;
+    double cst;
+    char* segs = minseg_forward(le, corpus,"osapóstolosdejesuseseusamigos", &n, &cst, &am);
+
+    segs = minseg_backward(le,corpus,segs,&n,am);
+    for(int i=0;i<n;i++)
+    {
+        printf("%-2d %s\n",i,segs);
+        segs = str_stack_next(segs);
+    }
+
     return 0;
 }
 
