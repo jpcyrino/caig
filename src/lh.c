@@ -240,6 +240,17 @@ lexicon_insert(lexicon* lex, char* key, uint64_t count)
     if(occupancy_rate >= MAX_OCCUPANCY_RATE && !lexicon_rehash(lex)) return false;
     return lexicon_add_item(lex,key,count); 
 }
+static int 
+compare_costs(void* c, const void* a, const void*b)
+{
+    lexicon* l = (lexicon*) c;
+    double cost_a = lexicon_get_cost(l,*(char**) a);
+    double cost_b = lexicon_get_cost(l,*(char**) b);
+
+    if(cost_a > cost_b) return 1;
+    if(cost_a < cost_b) return -1;
+    return 0;
+}
 
 static char**
 lexicon_get_keys(lexicon* lex, mem_pool* storage, size_t* out_size)
@@ -255,6 +266,7 @@ lexicon_get_keys(lexicon* lex, mem_pool* storage, size_t* out_size)
             pos++;
         }
     }
+    qsort_s(arr, lex->occupancy, sizeof(char*),&compare_costs,lex); 
     return arr;
 }
 
@@ -423,7 +435,8 @@ alphabet_create(mem_pool* storage, char* corpus, size_t corpus_sz)
     memset(ab->letters, 0,ALPHABET_DEFAULT_SIZE);
     memset(ab->counts, 0, ALPHABET_DEFAULT_SIZE);
     size_t pos = 0;
-    while(pos < corpus_sz)
+    size_t i = 0;
+    while(i < corpus_sz)
     {
         char* wd = corpus + pos;
         size_t len = strlen(wd);
@@ -433,8 +446,40 @@ alphabet_create(mem_pool* storage, char* corpus, size_t corpus_sz)
             alphabet_add(ab,wd[i]);
         }
         pos += 1 + len;
+        i++;
     }
     return ab;
+}
+
+static double
+alphabet_get_char_cost(alphabet* ab, char ch)
+{
+    char* alph = ab->letters;
+    size_t i=0;
+    while(alph[i] != '\0')
+    {
+        if(alph[i] == ch) break;
+        i++;
+    }
+    return log2((double) ab->counts[i]/ab->total_counts) * -1;
+}
+
+static double
+lexicon_get_bitlen(alphabet* ab, lexicon* lex, mem_pool* storage)
+{
+    size_t am;
+    char** keys = lexicon_get_keys(lex,storage,&am);
+    double bitlen = 0; 
+    for(size_t i=0;i<lex->occupancy;i++)
+    {
+        size_t len = strlen(keys[i]);
+        for(size_t j=0;j<len;j++)
+        {
+            bitlen += alphabet_get_char_cost(ab,keys[i][j]);
+        }
+    } 
+    mem_pop(storage,am);
+    return bitlen;
 }
 
 static void
@@ -493,15 +538,21 @@ int main()
     }
 
     printf("Total alfabeto: %zu\n", ab->total_counts);
+
     size_t sz=0;
     char** wds = lexicon_get_keys(le,corpus,&sz);
+    
     for(size_t i=0;i<le->occupancy;i++)
     {
-        printf("%s %lf\n", wds[i],lexicon_get_cost(le,wds[i]));
+        //printf("%s %lf\n", wds[i],lexicon_get_cost(le,wds[i]));
     }
+    
+    printf("Posição após alocar itens lexicais: %zu\n", corpus->pos);
     mem_pop(corpus,sz);
+    printf("Posição após livrar itens lexicais: %zu\n", corpus->pos);
 
     printf("Itens lexicais únicos: %zu\n", le->occupancy);
+    printf("Custo do léxico: %lf\n", lexicon_get_bitlen(ab,le,corpus));
 
      
 
