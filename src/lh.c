@@ -20,7 +20,7 @@ typedef struct {
     void* data;
 } mem_pool;
 
-static mem_pool* create_mem_pool()
+static mem_pool* create_mem_pool(void)
 {
     mem_pool* pool = malloc(sizeof(mem_pool*));
     pool->size = DEFAULT_MEM_POOL_SZ;
@@ -62,10 +62,12 @@ void mem_clear(mem_pool* pool)
 //
 // UTF-8 OPS
 //
+/*
 static bool is_initial_of_utf8_seq(char ch)
 {
-    return (ch & 0b11000000) != 0b10000000;
+    return (ch & 0xC0) != 0x80;
 }
+
 
 static void utf8_next(char* str, size_t* i)
 {
@@ -84,7 +86,7 @@ static void utf8_prev(char* str, size_t* i)
             is_initial_of_utf8_seq(str[--(*i)]) ||
             --(*i)); 
 }
-
+*/
 //
 // LEXICON
 //
@@ -124,7 +126,7 @@ typedef struct
 } lexicon;
 
 static lexicon*
-lexicon_create()
+lexicon_create(void)
 {
     lexicon* lex = malloc(sizeof(lexicon));
     lex->occupancy = 0;
@@ -482,12 +484,14 @@ lexicon_get_bitlen(alphabet* ab, lexicon* lex, mem_pool* storage)
     return bitlen;
 }
 
+/*
 static void
-lexhound_iteration_zero()
+lexhound_iteration_zero(void)
 {
     
 }
 
+*/
 //
 // CORPUS LOAD
 //
@@ -517,11 +521,9 @@ static void load_word_list(mem_pool* pool, char* filename, size_t* count)
 
 
 
-int main()
+int main(void)
 { 
     mem_pool* corpus = create_mem_pool(); 
-    mem_pool* str_storage = create_mem_pool();
-    //lexicon* le = lexicon_create(str_storage); 
     lexicon* le = lexicon_create();
     size_t count;
     load_word_list(corpus,"./test_res/wordlist.txt",&count);
@@ -540,12 +542,7 @@ int main()
     printf("Total alfabeto: %zu\n", ab->total_counts);
 
     size_t sz=0;
-    char** wds = lexicon_get_keys(le,corpus,&sz);
     
-    for(size_t i=0;i<le->occupancy;i++)
-    {
-        //printf("%s %lf\n", wds[i],lexicon_get_cost(le,wds[i]));
-    }
     
     printf("Posição após alocar itens lexicais: %zu\n", corpus->pos);
     mem_pop(corpus,sz);
@@ -588,6 +585,7 @@ int main()
     size_t bytes = fwrite((char*) corpus->data,sizeof(char),corpus->pos,fptr);
     fclose(fptr);
     printf("%zu bytes escritos\n", bytes);
+    lexicon_release(le);
 
     return 0;
 }
